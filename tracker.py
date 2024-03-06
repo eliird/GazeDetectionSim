@@ -1,9 +1,11 @@
 from threading import Thread
+import numpy as np
 import pykinect_azure as pykinect
 import cv2
 from PIL import Image
 import torch
 from torchvision import transforms
+
 
 class Tracker:
     def __init__(self, MAX_PEOPLE=5) -> None:
@@ -71,22 +73,23 @@ class Tracker:
                 self.person_dict[i] = [] 
         
         process_faces  = []
+        head_positions = []
         for i, face_image_batch in enumerate(self.person_dict.values()):            
             if len(face_image_batch) == 7:
                 face_image_batch = [face[0] for face in face_image_batch]
                 process_faces.append(torch.stack(face_image_batch).reshape(21, 224, 224))
                 self.person_dict[i].pop(0)
+                head_positions.append(self.person_dict[i][3][1])
+            
         
         if len(process_faces) == 0:
-            return torch.zeros(3,3)
+            return torch.zeros(3,3), np.array([-1])
         
         process_faces = torch.stack(process_faces)
-        return process_faces
+        return process_faces, np.array(head_positions)
         #print(process_faces.shape)
-        
-    def run(self)->None:
-        # get capture
-        while True:
+    
+    def captureAndProcess(self):
             capture = self.device.update()
             
             # get capture of the tracker
@@ -97,14 +100,20 @@ class Tracker:
             
             if not ret:
                 print("could not capture the frame")
-                continue
+                return torch.zeros(6, 21, 224, 224), torch.zeros(6, 8)
             
-            crops = self.getFaceCrops(body_frame, color_image)
-            print(crops.shape)
+            crops, head_pos = self.getFaceCrops(body_frame, color_image)
+            print(crops.shape, head_pos.shape)
                 
             color_skeleton = body_frame.draw_bodies(color_image, pykinect.K4A_CALIBRATION_TYPE_COLOR)
             cv2.imshow('Color image with Skeleton', color_skeleton)
             
+            return crops, head_pos
+        
+    def run(self)->None:
+        # get capture
+        while True:
+            self.captureAndProcess()
             # Press q key to stop
             if cv2.waitKey(1) == ord('q'):  
                 break

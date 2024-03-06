@@ -60,3 +60,4 @@ def draw_circle_2d(screen, pos, size=5, color=RED):
     
 def draw_circle_3d(screen, pos, origin2d, size=5, color=RED):
     pygame.draw.circle(screen, color, project2d(pos, origin2d), size)
+    

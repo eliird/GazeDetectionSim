@@ -1,7 +1,4 @@
-from tracker import Tracker
+from simulation import Simulator
 
-tracker = Tracker()
-
-tracker.run()
-
-print("The thread has started from the main program")
+sim = Simulator()
+sim.start()
