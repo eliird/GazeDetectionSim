@@ -48,11 +48,32 @@ class Simulator:
         
         # ML model
         self.train_device = torch_directml.device()
-        self.model = GazeLSTM()
-        self.model.load_state_dict(torch.load('./next_model/model_best_Gaze360.pth.tar'), map_location=torch.device('cpu'))
+        model = GazeLSTM()
+        self.model = torch.nn.DataParallel(model)
+        checkpoint = torch.load('./next_model/model_best_Gaze360.pth.tar', map_location=torch.device('cpu'))
+        self.model.load_state_dict(checkpoint['state_dict'])
         self. model.eval()
         self.model = self.model.to(self.train_device)
-        
+    
+    
+    def quaternion_to_euler(q):
+        # Extract quaternion components
+        w, x, y, z = q
+
+        # Calculate Euler angles
+        roll = math.atan2(2 * (w * x + y * z), 1 - 2 * (x**2 + y**2))
+        pitch = math.asin(2 * (w * y - z * x))
+        yaw = math.atan2(2 * (w * z + x * y), 1 - 2 * (y**2 + z**2))
+
+        return (roll, pitch, yaw)
+
+
+    def spherical2cartesial(self, x):    
+        output = torch.zeros(x.size(0),3)
+        output[:,2] = -torch.cos(x[:,1])*torch.cos(x[:,0])
+        output[:,0] = torch.cos(x[:,1])*torch.sin(x[:,0])
+        output[:,1] = torch.sin(x[:,1])
+        return output  
         
     def drawAxis(self, position=np.matrix([0, 0, 0]), rotation=[0.0, 0.0, 0.0]):
         axis = Axis()
@@ -86,10 +107,15 @@ class Simulator:
         if faces.shape[0] == 6 or faces.shape[1] != 21:
             return
         #print(faces.shape, head_positions.shape)
+        gazeVectors = self.model(faces.to(self.train_device))
+        print(gazeVectors)
         for i, person in enumerate(head_positions):
             print("Perosn: ", person[0:3])
             print("Kinect Origin:", self.kinectOrigin2d)
-            person_object = Object(self.screen, self.kinectOrigin2d, Position(person[0]/100, person[1]/100, person[2]/100), Rotation(0, 0, 0), color=RED) # change the person rotation from quad to x, y, z
+            person_position =  Position(person[0]/self.scale, person[1]/self.scale, person[2]/self.scale)
+            euler_rotation = self.quaternion_to_euler(person[3:7])
+            person_rotation = Rotation(euler_rotation[0], euler_rotation[1], euler_rotation[2])
+            person_object = Object(self.screen, self.kinectOrigin2d, person_position, person_rotation, color=RED) # change the person rotation from quad to x, y, z
             person_object.drawObject(colors[i])
 
     def start(self):
