@@ -1,10 +1,16 @@
+from object_manipulation import project2d
 from objects import Position, Rotation
 from math import sin, cos, pi
 import numpy as np
+import pygame
+
 
 class Point:
     def __init__(self, pos: Position=Position(0,0,0), rot: Rotation=Rotation(0,0,0)) -> None:
         self.transform = ObjectTransform(pos, rot)
+    
+    def drawObject(self, screen, offset, color):
+        pygame.draw.circle(screen, color, project2d(self.transform.pos.getPos(), offset), 5)
     
     def __str__(self) -> str:
         return self.transform.__str__()

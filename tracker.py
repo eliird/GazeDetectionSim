@@ -107,6 +107,7 @@ class Tracker:
                 
             color_skeleton = body_frame.draw_bodies(color_image, pykinect.K4A_CALIBRATION_TYPE_COLOR)
             cv2.imshow('Color image with Skeleton', color_skeleton)
+            cv2.waitKey(1)
             
             return crops, head_pos
         
