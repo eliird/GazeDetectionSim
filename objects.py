@@ -3,7 +3,7 @@ import numpy as np
 
 import pygame
 
-from object_manipulation import project2d
+from object_manipulation import connect_points_3d, project2d
 
 class Position():
     x: float
@@ -24,6 +24,12 @@ class Position():
     def getZ(self):
         return self.z
     
+    def getPos(self):
+        return np.matrix([self.x, self.y, self.z])
+    
+    def getPosObj(self):
+        return self
+    
 class Rotation():
     x: float
     y:float
@@ -42,6 +48,15 @@ class Rotation():
     
     def getZ(self):
         return self.z
+    
+    def getRot(self):
+        # return self 
+        return np.matrix([self.x, self.y, self.z])
+    
+    def getRotObj(self):
+        return self
+
+    
     
 class Object:
     def __init__(self, screen, origin, pos:Position, rot:Rotation, color=(0, 255, 0)) -> None:
@@ -106,6 +121,30 @@ class Object:
         rotated_coordinates = np.dot(R, coordinates)
         self.x, self.y, self.z = rotated_coordinates.tolist()
 
+    
     def inverse_rotate(self, angle_x, angle_y, angle_z):
-        self.rotate(-angle_x, -angle_y, -angle_z)
+        Rx = np.transpose(np.array([[1, 0, 0],
+                       [0, np.cos(angle_x), -np.sin(angle_x)],
+                       [0, np.sin(angle_x), np.cos(angle_x)]])
+        )
+        Ry = np.transpose(np.array([[np.cos(angle_y), 0, np.sin(angle_y)],
+                       [0, 1, 0],
+                       [-np.sin(angle_y), 0, np.cos(angle_y)]])
+        )
+        Rz = np.transpose(np.array([[np.cos(angle_z), -np.sin(angle_z), 0],
+                       [np.sin(angle_z), np.cos(angle_z), 0],
+                       [0, 0, 1]]))
         
+        R = np.dot(Rz, np.dot(Ry, Rx))
+        print("Transposed Rotation: ", R.shape)
+        coordinates = self.getPosition()
+        print(R.shape, coordinates.shape)
+        rotated_coordinates = np.dot(R, coordinates.reshape(3,1))
+        print("Inverse Rotated")
+        self.x, self.y, self.z = rotated_coordinates.tolist()
+        print("Inverse Rotated")
+
+
+    def drawGaze(self, gaze_vector, origin, origin2D, color):
+        connect_points_3d(self.screen, np.matrix(gaze_vector), origin, origin2D, color)
+        pass

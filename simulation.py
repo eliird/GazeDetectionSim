@@ -7,7 +7,6 @@ from axis import Axis
 from objects import Object, Position, Rotation
 from tracker import Tracker
 from model import GazeLSTM
-import torch_directml
 
 WHITE = (255, 255, 255)
 RED = (255, 0, 0)
@@ -15,10 +14,10 @@ BLACK = (0, 0, 0)
 GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
 
-colors = [RED, GREEN, BLUE, BLACK]
+colors = [RED, GREEN, BLUE, BLACK, BLUE]
 
 class Simulator:
-    def __init__(self, WIDTH=1920, HEIGHT=1080, SCALE=100, kinect_config_file='environment.txt') -> None:
+    def __init__(self, WIDTH=1600, HEIGHT=1000, SCALE=150, kinect_config_file='environment.txt') -> None:
         # load pygame screen
         pygame.display.set_caption("Gaze Detection")
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))  
@@ -47,16 +46,16 @@ class Simulator:
         
         
         # ML model
-        self.train_device = torch_directml.device()
+        self.train_device = 'cuda' # torch_directml.device()
         model = GazeLSTM()
         self.model = torch.nn.DataParallel(model)
-        checkpoint = torch.load('./next_model/model_best_Gaze360.pth.tar', map_location=torch.device('cpu'))
+        checkpoint = torch.load('./next_model/model_best_Gaze360.pth.tar', map_location=torch.device('cuda'))
         self.model.load_state_dict(checkpoint['state_dict'])
         self. model.eval()
-        self.model = self.model.to(self.train_device)
+        # self.model = self.model.to(self.train_device)
     
     
-    def quaternion_to_euler(q):
+    def quaternion_to_euler(self, q):
         # Extract quaternion components
         w, x, y, z = q
 
@@ -107,16 +106,33 @@ class Simulator:
         if faces.shape[0] == 6 or faces.shape[1] != 21:
             return
         #print(faces.shape, head_positions.shape)
-        gazeVectors = self.model(faces.to(self.train_device))
+        gazeVectors, _ = self.model(faces.to(self.train_device))
+        gazeVectors = gazeVectors.detach().cpu()
+        gazeVectors = self.spherical2cartesial(gazeVectors)
+        gazeVectors = gazeVectors.numpy()
         print(gazeVectors)
+        print('__________________________________')
+        # gazeVectors = gazeVectors.detach().cpu().numpy()
         for i, person in enumerate(head_positions):
             print("Perosn: ", person[0:3])
             print("Kinect Origin:", self.kinectOrigin2d)
+            print("Gaze Vecotr:", gazeVectors[i])
             person_position =  Position(person[0]/self.scale, person[1]/self.scale, person[2]/self.scale)
+            person_position2d = project2d(person_position.getPos(), self.kinectOrigin2d)
             euler_rotation = self.quaternion_to_euler(person[3:7])
             person_rotation = Rotation(euler_rotation[0], euler_rotation[1], euler_rotation[2])
+            
             person_object = Object(self.screen, self.kinectOrigin2d, person_position, person_rotation, color=RED) # change the person rotation from quad to x, y, z
+            
+            gazed_object_position = Position(gazeVectors[i][0], gazeVectors[i][1], gazeVectors[i][2])
+            
+            print(person_position2d, gazeVectors[i])
+            gazed_object = Object(self.screen, person_position2d, gazed_object_position, Rotation(0, 0, 0), color=RED) # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            person_object.inverse_rotate(euler_rotation[0], euler_rotation[1], euler_rotation[2])
+            gazed_object.inverse_rotate(euler_rotation[0], euler_rotation[1], euler_rotation[2])
             person_object.drawObject(colors[i])
+            gazed_object.drawObject(colors[i])
+            connect_points_3d(self.screen, person_object.getPosition(), gazed_object.getPosition(), self.origin2d)
 
     def start(self):
         while True:
