@@ -57,7 +57,7 @@ def update(angle):
         y = int(projected2d[1][0] * scale) + circle_pos[1]
 
         projected_cube[i] = [x, y]
-        draw_circle(screen, (x, y), 5, RED)
+        draw_circle_2d(screen, (x, y), 5, RED)
         i += 1
 
     for p in range(4):

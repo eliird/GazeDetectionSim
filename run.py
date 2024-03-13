@@ -1,8 +1,12 @@
+import math
 import pygame
 import numpy as np
 from math import *
 from object_manipulation import *
 from axis import Axis
+from tracker import Tracker
+
+
 
 WHITE = (255, 255, 255)
 RED = (255, 0, 0)
@@ -46,8 +50,8 @@ def drawAxis(screen, axis:Axis, origin2d, angle = 45):
     connect_points_3d(screen, axis.get_origin(), rotatedPoint3, origin2d, RED) # z- axis
 
 
-
-def update(angle):
+def update():
+    angle = 0#math.pi
     screen.fill(WHITE)
     # connect_points_3d(screen, np.matrix([0, 0, 0]), np.matrix((0, 1, 0)), origin2d)
     # angle = 10
@@ -72,6 +76,5 @@ while True:
                 exit()
 
     # update stuff
-    update(angle)
-    angle += 0.01    
+    update()    
     pygame.display.update()
