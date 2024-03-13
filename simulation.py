@@ -1,5 +1,6 @@
 
 import math
+import time
 from matplotlib import pyplot as plt
 # import pygame
 import torch
@@ -19,11 +20,8 @@ BLUE = (0, 0, 255)
 colors = [RED, GREEN, BLUE, BLACK, BLUE]
 
 
-
-
-
 class Simulator:
-    def __init__(self, WIDTH=1600, HEIGHT=1000, SCALE=50, kinect_config_file='environment.txt') -> None:
+    def __init__(self, WIDTH=1600, HEIGHT=1000, SCALE=100, kinect_config_file='environment.txt') -> None:
         # load pygame screen
         # pygame.display.set_caption("Gaze Detection")
         # self.screen = pygame.display.set_mode((WIDTH, HEIGHT))  
@@ -62,11 +60,6 @@ class Simulator:
 
         self.fig = plt.figure()
         self.ax  = plt.axes(projection='3d')
-        self.ax.set_xlim((-10, 10))
-        self.ax.set_ylim((-10, 10))
-        self.ax.set_zlim((-10, 10))
-    
-    
 
         
     def quaternion_to_euler(self, q):
@@ -80,12 +73,14 @@ class Simulator:
 
         return (roll, pitch, yaw)
 
+
     def spherical2cartesial(self, x):    
         output = torch.zeros(x.size(0),3)
         output[:,2] = -torch.cos(x[:,1])*torch.cos(x[:,0])
         output[:,0] = torch.cos(x[:,1])*torch.sin(x[:,0])
         output[:,1] = torch.sin(x[:,1])
         return output  
+
         
     def drawAxis(self, position=np.matrix([0, 0, 0]), rotation=[0.0, 0.0, 0.0]):
         axis = Axis()
@@ -108,12 +103,12 @@ class Simulator:
         connect_points_3d(self.screen, position, x_dir_rot, self.origin2d, BLUE) # x-axis
         connect_points_3d(self.screen, position, y_dir_rot, self.origin2d, GREEN) # y-axis
         connect_points_3d(self.screen, position, z_dir_rot, self.origin2d, RED) # z- axis
-    
+
     def update(self):
-        
         # draw the position of the kinect
         # self.screen.fill(WHITE)
         # self.kinect.drawObject(self.screen, self.origin2d, GREEN)
+        start_time = time.time()
         faces, head_positions = self.tracker.captureAndProcess()
         
         # need a more robust way to handle the not detected condition
@@ -125,14 +120,11 @@ class Simulator:
         gazeVectors = self.spherical2cartesial(gazeVectors)
         gazeVectors = gazeVectors.numpy()
         
-        print('__________________________________')
-        
         for i, person in enumerate(head_positions):
-            print("Person: ", person[0:3])
-            print("Gaze Vecotr:", gazeVectors[i])
             
             gaze_vector = gazeVectors[i]
-            
+            # gaze_vector[1] = -gaze_vector[1]
+            gaze_vector[0] = -gaze_vector[0]
             # person position and rotaion in kinect coordinates
             person_position =  Position(person[0]/self.scale, person[1]/self.scale, person[2]/self.scale)
             euler_rotation = self.quaternion_to_euler(person[3:7])
@@ -140,33 +132,57 @@ class Simulator:
             person = Point(person_position, person_rotation)        
             
             # eye coordinate in person coordinates
-            eye_start = Point(Position(0, 0, 0), Rotation(0, math.pi/2, math.pi/2))
+            eye_start = Point(Position(0, 0, 0), Rotation(0, 0, -math.pi))
             eye_end = Point(Position(gaze_vector[0], gaze_vector[1], gaze_vector[2]))
             
-            # gazedPoint in person coordinates
-            # eye_start.transform.inverse_rotate(eye_start.transform.rot.getRotObj())
-            # eye_end.transform.inverse_rotate(eye_start.transform.rot.getRotObj())
+            # print("Start eye coordinates: ", eye_start.transform.pos.x , eye_start.transform.pos.y, eye_start.transform.pos.z)
+            # print("End eye coordinates: ", eye_end.transform.pos.x , eye_end.transform.pos.y, eye_end.transform.pos.z)
+            # print('************')
+            # # gazedPoint in person coordinates
+            eye_start.transform.inverse_rotate(eye_start.transform.rot.getRotObj())
+            eye_end.transform.inverse_rotate(eye_start.transform.rot.getRotObj())
+            
+            # print("Start Person Coordinates:",eye_start.transform.pos.x, eye_start.transform.pos.y, eye_start.transform.pos.z)
+            # print("End Person Coordinates:",eye_end.transform.pos.x, eye_end.transform.pos.y, eye_end.transform.pos.z)
+            # print('************')
             
             # gazedPoint in kinect coordinates
-            eye_start.transform.inverse_rotate(person.transform.rot.getRotObj())
-            eye_end.transform.inverse_rotate(person.transform.rot.getRotObj())
-            
+            # eye_start.transform.inverse_rotate(person.transform.rot.getRotObj())
+            # eye_end.transform.inverse_rotate(person.transform.rot.getRotObj())
             eye_start.transform.inverse_translate(person.transform.pos.getPosObj())
             eye_end.transform.inverse_translate(person.transform.pos.getPosObj())
-            
-            
+            # print("Start Kinect Coordinates:",eye_start.transform.pos.x, eye_start.transform.pos.y, eye_start.transform.pos.z)
+            # print("End Kinect Coordinates:",eye_end.transform.pos.x, eye_end.transform.pos.y, eye_end.transform.pos.z)
+            # print('************')
+
             # gazedPoint in Base Coordinates
             eye_start.transform.inverse_rotate(self.kinect.transform.rot.getRotObj())
             eye_end.transform.inverse_rotate(self.kinect.transform.rot.getRotObj())
-            
             eye_start.transform.inverse_translate(self.kinect.transform.pos.getPosObj())
             eye_end.transform.inverse_translate(self.kinect.transform.pos.getPosObj())
-            self.ax.clear()
+            # print("Start Base Coordinates:",eye_start.transform.pos.x, eye_start.transform.pos.y, eye_start.transform.pos.z)
+            # print("End Base Coordinates:",eye_end.transform.pos.x, eye_end.transform.pos.y, eye_end.transform.pos.z)
+            # print('************')
+            
+            #plotting the results
+            
             self.plotPoint(self.kinect)
             # self.plotLine(eye_start, eye_end)
+            self.plotPoint(eye_start)
+            # self.plotLine(eye_end, eye_start)
             self.arrowed_line(eye_start, eye_end)
+            self.ax.set_xlim((-20, 20))
+            self.ax.set_ylim((-20, 20))
+            self.ax.set_zlim((-20, 20))
+            self.ax.set_xlabel('X')
+            self.ax.set_ylabel('Y')
+            self.ax.set_zlabel('Z')
             plt.draw()
             plt.pause(0.001)
+            
+        self.ax.clear()
+        end_time = time.time()
+        print("FPS: ", 1/(end_time - start_time))
             # self.plotPoint(self.kinect, ax)
             # 2D gaze points
             # eye_start2D = project2d(eye_start.transform.pos.getPos(), self.origin2d)
@@ -176,32 +192,27 @@ class Simulator:
             # eye_start.drawObject(self.screen, self.origin2d, BLACK)
             # eye_end.drawObject(self.screen, self.origin2d, RED) 
     
-    def arrowed_line(self, pointA: Point, pointB: Point, arrow_label=None, arrow_color='blue', arrow_alpha=1.0):
+    def arrowed_line(self, pointA: Point, pointB: Point, arrow_label=None, arrow_color='red', arrow_alpha=1.0):
         self.ax.plot([pointA.transform.pos.x, pointB.transform.pos.x ],
                      [pointA.transform.pos.y, pointB.transform.pos.y],
                      [pointA.transform.pos.z, pointB.transform.pos.z])
+        
         arrow_start = np.array([pointA.transform.pos.x, pointA.transform.pos.y, pointA.transform.pos.z])
         arrow_end = np.array([pointA.transform.pos.x, pointA.transform.pos.y, pointA.transform.pos.z])
         arrow_vector = arrow_end - arrow_start
-        self.ax.quiver(arrow_start[0], arrow_start[1], arrow_start[2], arrow_vector[0], arrow_vector[1], arrow_vector[2], color=arrow_color, label=arrow_label)
+        
+        self.ax.quiver(arrow_start[0], arrow_start[1], arrow_start[2], arrow_vector[0], arrow_vector[1], arrow_vector[2], length=200, normalize=False, color=arrow_color, label=arrow_label)
+    
     
     def plotLine(self, pointA: Point, pointB: Point):
-        self.ax.plot([pointA.transform.pos.x, pointB.transform.pos.x ],
-                     [pointA.transform.pos.y, pointB.transform.pos.y],
-                     [pointA.transform.pos.z, pointB.transform.pos.z])
-        
-        
+        self.ax.plot([5*pointA.transform.pos.x, pointB.transform.pos.x ],
+                     [5*pointA.transform.pos.y, pointB.transform.pos.y],
+                     [5*pointA.transform.pos.z, pointB.transform.pos.z])
+           
     def plotPoint(self, point:Point):
         self.ax.scatter(point.transform.pos.x, point.transform.pos.y, point.transform.pos.z)
     
     
     def start(self):
         while True:
-            # print("Checking for events")
-            # for event in pygame.event.get():
-            #     if event.type == pygame.QUIT:
-            #         pygame.quit()
-            #         return
-            # print("Updating the screen")
             self.update()
-            # pygame.display.update()
