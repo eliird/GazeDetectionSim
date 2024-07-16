@@ -19,7 +19,7 @@ The details of implementation can be found in the **Simulator** class in `simula
 
 ## Gaze Detection System
 
-The image below shows the architecture of the gaze detection model [Architecture](imgs/model_architecture.png)
+The image below shows the architecture of the gaze detection model ![Architecture](imgs/model_architecture.png)
 
 The model is based on the [gaze 350](http://gaze360.csail.mit.edu/) but we replaced the backbone with the [convNext](https://github.com/facebookresearch/ConvNeXt) models. We replace the backbone and retrain the model. The code for the backbone can be found in `/convnext` directory. And the architecture of the complete model can be found in `model.py` file.
 
